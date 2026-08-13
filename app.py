@@ -17,25 +17,25 @@ st.markdown("""
 st.title("📊 Professional Match Performance Dashboard")
 st.caption("PFSA Portfolio Standard Analytics Engine")
 
-# 2. Generate Fixed Dataset for Coventry City
+# 2. Fixed Complete Dataset for Coventry City (No Missing Variables)
 @st.cache_data
 def load_mock_match_data():
     # Format: [X coordinate, Y coordinate, Total Match Involvements]
     players = {
-        'Simms (9)':,           # Lone striker
-        'Wright (11)':,         # Left wing
-        'Sakamoto (7)':,        # Right wing
-        'Rudoni (10)':,         # Attacking Mid Left
-        'Torp (8)':,            # Attacking Mid Right
-        'Sheaf (14)':,          # Midfield Anchor Hub
-        'Eccles (28)':,         # Midfield Anchor Support
-        'Binks (5)':,           # Left CB
-        'Thomas (4)':,          # Central CB
-        'Latibeaudiere (22)':,  # Right CB
-        'Dovin (1)': [10, 40, 30]            # Goalkeeper
+        'Simms (9)': [95, 40, 40],           # Lone striker
+        'Wright (11)': [70, 15, 35],         # Left wing
+        'Sakamoto (7)': [70, 65, 33],        # Right wing
+        'Rudoni (10)': [75, 30, 38],         # Attacking Mid Left
+        'Torp (8)': [75, 50, 36],            # Attacking Mid Right
+        'Sheaf (14)': [50, 32, 68],          # Midfield Anchor Hub
+        'Eccles (28)': [50, 48, 60],         # Midfield Anchor Support
+        'Binks (5)': [28, 20, 45],           # Left CB
+        'Thomas (4)': [24, 40, 50],          # Central CB
+        'Latibeaudiere (22)': [28, 60, 42],  # Right CB
+        'Dovin (1)': [8, 40, 32]             # Goalkeeper
     }
     
-    # Generate match passing matrix lanes (Source, Target, Volume of passes)
+    # Generate match passing matrix lanes (Source, Target, Volume)
     passing_lanes = [
         ('Thomas (4)', 'Sheaf (14)', 18), ('Thomas (4)', 'Eccles (28)', 14),
         ('Binks (5)', 'Sheaf (14)', 15), ('Binks (5)', 'Wright (11)', 22),
