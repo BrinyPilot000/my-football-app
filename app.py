@@ -2,6 +2,9 @@
 app.py
 ------
 Main Hub / Landing Page for the PFSA Technical Scouting Portfolio.
+Now featuring an interactive Middle Eastern League Search Engine
+(Saudi Pro League & UAE Pro League) directly on the home screen.
+
 Run with:  streamlit run app.py
 """
 
@@ -66,7 +69,7 @@ def inject_global_css():
         .pfsa-hero p {{
             color: #9fb3c8;
             font-size: 1.05rem;
-            max-width: 780px;
+            max-width: 800px;
         }}
         .pfsa-badge {{
             display: inline-block;
@@ -118,20 +121,96 @@ def inject_global_css():
             letter-spacing: 0.05em;
         }}
 
-        /* ---------- Nav deck tiles ---------- */
-        .pfsa-tile {{
+        /* ---------- Search engine module ---------- */
+        .pfsa-search-panel {{
+            background: linear-gradient(135deg, {SECONDARY_BG} 0%, #101a24 100%);
+            border: 1px solid rgba(0, 242, 254, 0.22);
+            border-radius: 16px;
+            padding: 1.6rem 1.8rem 0.6rem 1.8rem;
+            margin-bottom: 1.2rem;
+        }}
+        .pfsa-search-panel h3 {{
+            color: {ACCENT_TEAL} !important;
+            margin-bottom: 0.1rem;
+        }}
+        .pfsa-search-panel p {{
+            color: #9fb3c8;
+            font-size: 0.88rem;
+            margin-bottom: 1rem;
+        }}
+        .pfsa-select-label {{
+            color: {ACCENT_BLUE};
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+        }}
+
+        /* ---------- Confirmation / connection card ---------- */
+        .pfsa-confirm-card {{
+            background: rgba(0, 242, 254, 0.06);
+            border: 1px solid rgba(0, 242, 254, 0.45);
+            border-left: 4px solid {ACCENT_TEAL};
+            border-radius: 12px;
+            padding: 1.1rem 1.4rem;
+            margin: 1rem 0 1.6rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }}
+        .pfsa-confirm-status {{
+            color: {ACCENT_TEAL};
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 0.3rem;
+        }}
+        .pfsa-confirm-detail {{
+            color: #c9d6e3;
+            font-size: 0.87rem;
+        }}
+        .pfsa-confirm-pill {{
+            display: inline-block;
+            padding: 0.2rem 0.7rem;
+            border-radius: 999px;
+            background: rgba(135, 206, 235, 0.1);
+            border: 1px solid rgba(135, 206, 235, 0.4);
+            color: {ACCENT_BLUE};
+            font-size: 0.75rem;
+            margin: 0.15rem 0.3rem 0.15rem 0;
+        }}
+        .pfsa-pulse-dot {{
+            display: inline-block;
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 50%;
+            background: {ACCENT_TEAL};
+            margin-right: 0.5rem;
+            box-shadow: 0 0 8px {ACCENT_TEAL};
+        }}
+
+        /* ---------- Framework deck tiles ---------- */
+        .pfsa-framework-tile {{
             background-color: {SECONDARY_BG};
-            border: 1px solid rgba(135, 206, 235, 0.15);
+            border: 1px solid rgba(135, 206, 235, 0.16);
             border-radius: 14px;
-            padding: 1.1rem 1.2rem;
-            margin-bottom: 0.9rem;
+            padding: 1.2rem 1.3rem;
+            margin-bottom: 1rem;
+            height: 100%;
+            transition: 0.2s ease-in-out;
         }}
-        .pfsa-tile h4 {{
+        .pfsa-framework-tile:hover {{
+            border-color: {ACCENT_TEAL};
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.1);
+            transform: translateY(-2px);
+        }}
+        .pfsa-framework-tile h4 {{
             color: #f0f6fc !important;
-            margin-bottom: 0.15rem;
-            font-size: 1rem;
+            margin-bottom: 0.3rem;
+            font-size: 1.02rem;
         }}
-        .pfsa-tile p {{
+        .pfsa-framework-tile p {{
             color: #8b9cb0;
             font-size: 0.85rem;
             margin-bottom: 0;
@@ -145,7 +224,7 @@ def inject_global_css():
             border: none;
         }}
 
-        /* ---------- Buttons ---------- */
+        /* ---------- Buttons & Select widgets ---------- */
         div.stButton > button {{
             background: linear-gradient(90deg, {ACCENT_BLUE}, {ACCENT_TEAL});
             color: #0d1117;
@@ -158,6 +237,10 @@ def inject_global_css():
             opacity: 0.85;
             color: #0d1117;
         }}
+        div[data-baseweb="select"] > div {{
+            background-color: {SECONDARY_BG};
+            border-color: rgba(135, 206, 235, 0.35) !important;
+        }}
 
         /* ---------- Footer ---------- */
         .pfsa-footer {{
@@ -165,6 +248,11 @@ def inject_global_css():
             color: #56616e;
             font-size: 0.78rem;
             margin-top: 2.5rem;
+            padding-top: 1.2rem;
+            border-top: 1px solid rgba(135, 206, 235, 0.12);
+        }}
+        .pfsa-footer strong {{
+            color: {ACCENT_BLUE};
         }}
         </style>
         """,
@@ -182,13 +270,13 @@ st.markdown(
     <div class="pfsa-hero">
         <span class="pfsa-badge">PFSA Certified</span>
         <span class="pfsa-badge">Technical Scouting</span>
-        <span class="pfsa-badge">Data-Driven Recruitment</span>
+        <span class="pfsa-badge">Middle East Market Coverage</span>
         <h1>⚽ Football Performance Scouting &amp; Analytics Portfolio</h1>
         <p>
             A data-led technical scouting workspace built for elite recruitment analysis —
-            combining event-data visualization, biomechanical and tactical profiling, and
-            statistical similarity modelling to support first-team recruitment, opposition
-            analysis, and academy player development decisions.
+            combining event-data visualization, transition tracking, and market profiling
+            to support first-team recruitment, opposition analysis, and cross-market player
+            identification across the Saudi Pro League and UAE Pro League.
         </p>
     </div>
     """,
@@ -196,16 +284,16 @@ st.markdown(
 )
 
 # --------------------------------------------------------------------------
-# ANALYST CREDENTIALS CARD
+# ANALYST CREDENTIALS GRID
 # --------------------------------------------------------------------------
 st.subheader("Analyst Credentials")
 
 c1, c2, c3, c4 = st.columns(4)
 credential_cards = [
-    ("🎓", "PFSA Level 3 Diploma", "Performance Analysis in Football — Technical Scouting pathway."),
-    ("📈", "5+ Seasons Tracked", "Multi-competition event data coverage across the EFL &amp; Premier League."),
-    ("🗂️", "500+ Player Profiles", "Standardised scouting templates built for recruitment committees."),
-    ("🧮", "Custom Similarity Models", "Percentile &amp; distance-based statistical player-matching engine."),
+    ("🎓", "PFSA Certification Level 1 &amp; 2", "Accredited technical scouting &amp; performance analysis pathway."),
+    ("🌍", "Multi-League Event Tracking", "Saudi Pro League &amp; UAE Pro League focus, with cross-market coverage."),
+    ("🗂️", "Standardized Club Recruitment Profiles", "Consistent scouting templates built for recruitment committees."),
+    ("🧮", "Percentile Benchmarking Models", "Statistical percentile &amp; distance-based player evaluation frameworks."),
 ]
 for col, (icon, title, desc) in zip([c1, c2, c3, c4], credential_cards):
     with col:
@@ -222,14 +310,14 @@ for col, (icon, title, desc) in zip([c1, c2, c3, c4], credential_cards):
 st.markdown('<hr class="pfsa-divider">', unsafe_allow_html=True)
 
 # --------------------------------------------------------------------------
-# HEADLINE METRICS
+# PORTFOLIO SNAPSHOT METRICS
 # --------------------------------------------------------------------------
 st.subheader("Portfolio Snapshot")
 m1, m2, m3, m4 = st.columns(4)
 metrics = [
     ("Matches Analysed", "142"),
     ("Players Profiled", "538"),
-    ("Leagues Covered", "4"),
+    ("Competitions Monitored", "2"),
     ("Reports Delivered", "63"),
 ]
 for col, (label, value) in zip([m1, m2, m3, m4], metrics):
@@ -247,36 +335,135 @@ for col, (label, value) in zip([m1, m2, m3, m4], metrics):
 st.markdown('<hr class="pfsa-divider">', unsafe_allow_html=True)
 
 # --------------------------------------------------------------------------
-# NAVIGATION DECK
+# NEW ENGINE MODULE — GLOBAL SCOUT DATABASE SEARCH
 # --------------------------------------------------------------------------
-st.subheader("📂 Explore the Scouting Suite")
-st.caption("Use the sidebar navigation, or jump straight to a module below.")
+LEAGUES_DATA = {
+    "Saudi Pro League (Saudi Arabia)": {
+        "seasons": ["2025/2026 (Current Season)", "2024/2025 (Last Season)"],
+        "clubs": ["Al-Hilal", "Al-Nassr", "Al-Ittihad", "Al-Ahli", "Al-Shabab", "Al-Ettifaq"],
+    },
+    "UAE Pro League (United Arab Emirates)": {
+        "seasons": ["2025/2026 (Current Season)", "2024/2025 (Last Season)"],
+        "clubs": ["Al-Ain", "Al-Wasl", "Shabab Al-Ahli", "Al-Sharjah", "Al-Wahda", "Al-Jazira"],
+    },
+}
 
-deck = [
-    ("🎯", "Finishing Dashboards", "Goals vs. xG output and shot conversion efficiency."),
-    ("📊", "Match Analysis", "Passing network map with touch volume &amp; connection strength."),
-    ("🔄", "Player Comparison", "Head-to-head radar / pizza chart across key metrics."),
-    ("🗺️", "Player Maps — Passing", "Progressive passes &amp; cutback direction mapping."),
-    ("💥", "Player Maps — Shots", "xG-scaled shot map with outcome markers."),
-    ("👤", "Player Profiles", "Biographical scouting card with strengths &amp; role fit."),
-    ("🕵️", "Player Similarity Search", "Statistical nearest-neighbour player matching."),
-    ("📉", "Scatter Plot Beta", "Adjustable X/Y quadrant benchmarking tool."),
-    ("👥", "Team Comparison", "Tactical style sliders across two squads."),
-    ("🛡️", "Team Profiles", "Single-club deep dive: system, age curve, form."),
-]
+st.markdown(
+    """
+    <div class="pfsa-search-panel">
+        <h3>🌐 Global Scout Database Search</h3>
+        <p>Lock in a target competition, timeline, and club identity to prime every downstream scouting module.</p>
+    """,
+    unsafe_allow_html=True,
+)
 
-cols = st.columns(2)
-for i, (icon, title, desc) in enumerate(deck):
-    with cols[i % 2]:
-        st.markdown(
-            f"""
-            <div class="pfsa-tile">
-                <h4>{icon} {title}</h4>
-                <p>{desc}</p>
+search_col1, search_col2, search_col3 = st.columns(3)
+
+with search_col1:
+    st.markdown('<div class="pfsa-select-label">Choose Target Competition</div>', unsafe_allow_html=True)
+    selected_league = st.selectbox(
+        "Choose Target Competition",
+        options=list(LEAGUES_DATA.keys()),
+        key="selected_league",
+        label_visibility="collapsed",
+    )
+
+with search_col2:
+    st.markdown('<div class="pfsa-select-label">Select Data Timeline</div>', unsafe_allow_html=True)
+    selected_season = st.selectbox(
+        "Select Data Timeline",
+        options=LEAGUES_DATA[selected_league]["seasons"],
+        key=f"selected_season_{selected_league}",
+        label_visibility="collapsed",
+    )
+
+with search_col3:
+    st.markdown('<div class="pfsa-select-label">Search Target Club Identity</div>', unsafe_allow_html=True)
+    selected_club = st.selectbox(
+        "Search Target Club Identity",
+        options=LEAGUES_DATA[selected_league]["clubs"],
+        key=f"selected_club_{selected_league}",
+        label_visibility="collapsed",
+    )
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --------------------------------------------------------------------------
+# DATABASE CONFIRMATION FEEDBACK LOOP
+# --------------------------------------------------------------------------
+st.markdown(
+    f"""
+    <div class="pfsa-confirm-card">
+        <div>
+            <div class="pfsa-confirm-status"><span class="pfsa-pulse-dot"></span>Secure Link Established</div>
+            <div class="pfsa-confirm-detail">
+                Active target parameters synced &mdash; ready for secondary page filtering across the scouting suite.
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            <div style="margin-top:0.6rem;">
+                <span class="pfsa-confirm-pill">🏆 {selected_league}</span>
+                <span class="pfsa-confirm-pill">🗓️ {selected_season}</span>
+                <span class="pfsa-confirm-pill">🛡️ {selected_club}</span>
+            </div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown('<hr class="pfsa-divider">', unsafe_allow_html=True)
+
+# --------------------------------------------------------------------------
+# INTERACTIVE FRAMEWORK DECK (2x2)
+# --------------------------------------------------------------------------
+st.subheader("📂 Interactive Framework Deck")
+st.caption("Every module below inherits the competition, season, and club context set above.")
+
+framework_row1_col1, framework_row1_col2 = st.columns(2)
+framework_row2_col1, framework_row2_col2 = st.columns(2)
+
+with framework_row1_col1:
+    st.markdown(
+        """
+        <div class="pfsa-framework-tile">
+            <h4>🎯 Performance &amp; Shot Frameworks</h4>
+            <p>Goals vs. xG dashboards and xG-scaled shot maps quantifying finishing quality and attacking output.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with framework_row1_col2:
+    st.markdown(
+        """
+        <div class="pfsa-framework-tile">
+            <h4>📊 Live Match Networks</h4>
+            <p>Passing network visualizations mapping touch volume and pass-combination strength within a match.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with framework_row2_col1:
+    st.markdown(
+        """
+        <div class="pfsa-framework-tile">
+            <h4>🔄 Squad &amp; Recruitment Matrices</h4>
+            <p>Head-to-head player comparison, statistical similarity search, and quadrant benchmarking for target identification.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with framework_row2_col2:
+    st.markdown(
+        """
+        <div class="pfsa-framework-tile">
+            <h4>🛡️ Team Scouting Profiles</h4>
+            <p>Single-club deep dives and tactical style comparisons covering system, squad age curve, and seasonal form.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 st.markdown('<hr class="pfsa-divider">', unsafe_allow_html=True)
 
@@ -286,10 +473,14 @@ st.info(
     icon="ℹ️",
 )
 
+# --------------------------------------------------------------------------
+# PROFESSIONAL FOOTER
+# --------------------------------------------------------------------------
 st.markdown(
     """
     <div class="pfsa-footer">
-        Built with Streamlit &amp; mplsoccer · PFSA Technical Scouting Portfolio · © 2026
+        Built for professional club recruitment committees &middot; PFSA Technical Scouting Portfolio
+        &middot; <strong>Saudi Pro League</strong> &amp; <strong>UAE Pro League</strong> Coverage &middot; © 2026
     </div>
     """,
     unsafe_allow_html=True,
