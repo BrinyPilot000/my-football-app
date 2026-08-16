@@ -1,12 +1,14 @@
 """
 3_🔄_Player_Comparison.py
 ---------------------------
-Side-by-side pizza-style comparison chart (matplotlib polar bar chart)
-for two selected players across a synthetic percentile-metric matrix.
+Side-by-side polar radar comparison for Saudi Pro League & UAE Pro League
+midfielders/attackers across five core tactical traits.
+
+Dataset is a hardcoded, illustrative mock dataset for portfolio
+demonstration purposes only — it does not represent real percentile data.
 """
 
 import numpy as np
-import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 
@@ -36,8 +38,22 @@ def inject_css():
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }}
         .pfsa-header p {{ color: #9fb3c8; margin-bottom: 0; }}
-        .pfsa-legend-a {{ color: {ACCENT_BLUE}; font-weight: 700; }}
-        .pfsa-legend-b {{ color: {ACCENT_TEAL}; font-weight: 700; }}
+        .pfsa-player-card {{
+            background-color: {SECONDARY_BG}; border: 1px solid rgba(135, 206, 235, 0.18);
+            border-radius: 12px; padding: 0.9rem 1.1rem; text-align: center; margin-bottom: 0.8rem;
+        }}
+        table.pfsa-compare-table {{
+            width: 100%; border-collapse: collapse; margin-top: 0.8rem; font-size: 0.92rem;
+        }}
+        table.pfsa-compare-table th {{
+            background-color: {SECONDARY_BG}; color: {ACCENT_BLUE}; text-align: left;
+            padding: 0.6rem 0.8rem; border-bottom: 2px solid rgba(135, 206, 235, 0.3);
+        }}
+        table.pfsa-compare-table td {{
+            padding: 0.55rem 0.8rem; border-bottom: 1px solid rgba(135, 206, 235, 0.12); color: #e6edf3;
+        }}
+        table.pfsa-compare-table tr:nth-child(even) {{ background-color: rgba(135, 206, 235, 0.03); }}
+        .pfsa-winner {{ color: {ACCENT_TEAL}; font-weight: 700; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -49,97 +65,186 @@ inject_css()
 st.markdown(
     """
     <div class="pfsa-header">
-        <h1>🔄 Player Comparison — Pizza Chart</h1>
-        <p>Head-to-head percentile comparison across key performance metrics (synthetic league dataset)</p>
+        <h1>🔄 Player Comparison — Tactical Radar</h1>
+        <p>Head-to-head comparison of Saudi Pro League &amp; UAE Pro League midfielders and attackers
+        across five core tactical traits</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-METRICS = [
-    "Goals /90", "xG /90", "Shots /90", "Key Passes /90", "Dribbles /90",
-    "Progressive Carries /90", "Pass Completion %", "Aerial Win %",
-    "Tackles /90", "Interceptions /90", "Pressures /90", "Defensive Duels Won %",
-]
+st.caption(
+    "⚠️ Trait scores below are illustrative mock percentile values built for portfolio demonstration "
+    "purposes and do not represent real performance data."
+)
 
+# --------------------------------------------------------------------------
+# HARDCODED PLAYER PROFILE MATRIX
+# --------------------------------------------------------------------------
+TRAITS = ["Passing Accuracy", "Progressive Carries", "Defensive Interceptions",
+          "Key Chance Creation", "Press Resistance"]
 
-@st.cache_data
-def generate_player_pool(seed: int = 21):
-    rng = np.random.default_rng(seed)
-    surnames = [
-        "Sinclair", "Wright", "Ogbene", "Godden", "Kelly", "Bidwell", "Allen", "Doyle",
-        "Latibeaudiere", "Sakamoto", "Kyriakou", "Simms", "Torfason", "Bushiri", "Rudoni",
-        "Norwood", "Palmer", "Iheanacho", "Awoniyi", "Eze", "Mitoma", "Gordon",
-    ]
-    n = len(surnames)
-    data = {"player": surnames}
-    for m in METRICS:
-        data[m] = np.clip(rng.normal(50, 22, size=n), 1, 99).round(1)
-    return pd.DataFrame(data)
+PLAYER_PROFILES = {
+    "Rúben Neves": {
+        "club": "Al-Hilal", "league": "Saudi Pro League", "position": "CDM",
+        "traits": {"Passing Accuracy": 92, "Progressive Carries": 74, "Defensive Interceptions": 68,
+                   "Key Chance Creation": 62, "Press Resistance": 88},
+    },
+    "Sergej Milinković-Savić": {
+        "club": "Al-Hilal", "league": "Saudi Pro League", "position": "CM / AM",
+        "traits": {"Passing Accuracy": 85, "Progressive Carries": 78, "Defensive Interceptions": 58,
+                   "Key Chance Creation": 80, "Press Resistance": 82},
+    },
+    "Kaku": {
+        "club": "Al-Wasl", "league": "UAE Pro League", "position": "AM",
+        "traits": {"Passing Accuracy": 81, "Progressive Carries": 70, "Defensive Interceptions": 40,
+                   "Key Chance Creation": 88, "Press Resistance": 65},
+    },
+    "N'Golo Kanté": {
+        "club": "Al-Ittihad", "league": "Saudi Pro League", "position": "CDM",
+        "traits": {"Passing Accuracy": 87, "Progressive Carries": 60, "Defensive Interceptions": 91,
+                   "Key Chance Creation": 48, "Press Resistance": 90},
+    },
+}
 
+PLAYER_NAMES = list(PLAYER_PROFILES.keys())
 
-pool = generate_player_pool()
-
+# --------------------------------------------------------------------------
+# SIDE-BY-SIDE SELECTORS
+# --------------------------------------------------------------------------
 c1, c2 = st.columns(2)
 with c1:
-    player_a = st.selectbox("Select Player A", pool["player"], index=0)
+    player_alpha = st.selectbox("Player Alpha", PLAYER_NAMES, index=0)
 with c2:
-    default_b_idx = 1 if len(pool) > 1 else 0
-    player_b = st.selectbox("Select Player B", pool["player"], index=default_b_idx)
+    default_beta_idx = 3 if len(PLAYER_NAMES) > 3 else (1 if len(PLAYER_NAMES) > 1 else 0)
+    player_beta = st.selectbox("Player Beta", PLAYER_NAMES, index=default_beta_idx)
 
-row_a = pool[pool["player"] == player_a].iloc[0]
-row_b = pool[pool["player"] == player_b].iloc[0]
+profile_a = PLAYER_PROFILES[player_alpha]
+profile_b = PLAYER_PROFILES[player_beta]
 
-values_a = [row_a[m] for m in METRICS]
-values_b = [row_b[m] for m in METRICS]
+card_col1, card_col2 = st.columns(2)
+with card_col1:
+    st.markdown(
+        f"""
+        <div class="pfsa-player-card">
+            <strong style="color:{ACCENT_BLUE}; font-size:1.05rem;">{player_alpha}</strong><br>
+            <span style="color:#9fb3c8; font-size:0.85rem;">{profile_a['position']} · {profile_a['club']}
+            ({profile_a['league']})</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+with card_col2:
+    st.markdown(
+        f"""
+        <div class="pfsa-player-card">
+            <strong style="color:{ACCENT_TEAL}; font-size:1.05rem;">{player_beta}</strong><br>
+            <span style="color:#9fb3c8; font-size:0.85rem;">{profile_b['position']} · {profile_b['club']}
+            ({profile_b['league']})</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # --------------------------------------------------------------------------
-# PIZZA / POLAR BAR CHART
+# POLAR RADAR CHART
 # --------------------------------------------------------------------------
-def draw_pizza(ax, values, color, label):
-    n = len(METRICS)
-    angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
-    width = (2 * np.pi / n) * 0.92
+values_a = [profile_a["traits"][t] for t in TRAITS]
+values_b = [profile_b["traits"][t] for t in TRAITS]
 
-    ax.set_facecolor(PRIMARY_BG)
-    bars = ax.bar(angles, values, width=width, color=color, alpha=0.85,
-                   edgecolor=PRIMARY_BG, linewidth=1.5, zorder=3)
+angles = np.linspace(0, 2 * np.pi, len(TRAITS), endpoint=False).tolist()
+values_a_closed = values_a + [values_a[0]]
+values_b_closed = values_b + [values_b[0]]
+angles_closed = angles + [angles[0]]
 
-    ax.set_ylim(0, 100)
-    ax.set_yticklabels([])
-    ax.set_xticks(angles)
-    ax.set_xticklabels(METRICS, fontsize=8, color="#e6edf3")
-    ax.spines["polar"].set_visible(False)
-    ax.grid(color="#2a3542", alpha=0.4)
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-
-    for angle, val in zip(angles, values):
-        ax.text(angle, val + 6, f"{val:.0f}", ha="center", va="center",
-                 fontsize=7.5, color="#f0f6fc", fontweight="bold", zorder=4)
-
-    ax.set_title(label, color=color, fontsize=13, fontweight="bold", pad=18)
-
-
-fig, axes = plt.subplots(1, 2, subplot_kw={"projection": "polar"}, figsize=(13, 6.5))
+fig, ax = plt.subplots(figsize=(8.5, 8.5), subplot_kw={"projection": "polar"})
 fig.patch.set_facecolor(PRIMARY_BG)
+ax.set_facecolor(PRIMARY_BG)
 
-draw_pizza(axes[0], values_a, ACCENT_BLUE, f"{player_a}")
-draw_pizza(axes[1], values_b, ACCENT_TEAL, f"{player_b}")
+ax.plot(angles_closed, values_a_closed, color=ACCENT_BLUE, linewidth=2.4, label=player_alpha)
+ax.fill(angles_closed, values_a_closed, color=ACCENT_BLUE, alpha=0.18)
 
-fig.suptitle("Percentile Rank vs. League Sample (0–100)", color="#9fb3c8", fontsize=10, y=0.02)
+ax.plot(angles_closed, values_b_closed, color=ACCENT_TEAL, linewidth=2.4, label=player_beta)
+ax.fill(angles_closed, values_b_closed, color=ACCENT_TEAL, alpha=0.18)
+
+ax.set_ylim(0, 100)
+ax.set_xticks(angles)
+ax.set_xticklabels(TRAITS, color="#e6edf3", fontsize=10)
+ax.set_yticks([20, 40, 60, 80, 100])
+ax.set_yticklabels(["20", "40", "60", "80", "100"], color="#6b7684", fontsize=7)
+ax.spines["polar"].set_visible(False)
+ax.grid(color="#2a3542", alpha=0.45)
+ax.set_theta_offset(np.pi / 2)
+ax.set_theta_direction(-1)
+
+ax.legend(loc="upper right", bbox_to_anchor=(1.28, 1.12), facecolor=SECONDARY_BG,
+          edgecolor="#2a3542", labelcolor="#e6edf3", fontsize=10)
+ax.set_title(f"{player_alpha} vs. {player_beta}", color="#f0f6fc", fontsize=14, fontweight="bold", pad=24)
+
 st.pyplot(fig, use_container_width=True)
 
 # --------------------------------------------------------------------------
-# HEAD-TO-HEAD TABLE
+# COMPARISON TABLE — WINNER HIGHLIGHTED IN NEON TEAL
 # --------------------------------------------------------------------------
 st.subheader("Metric-by-Metric Breakdown")
-compare_df = pd.DataFrame(
-    {
-        "Metric": METRICS,
-        player_a: values_a,
-        player_b: values_b,
-        "Edge": [player_a if a > b else (player_b if b > a else "Tie") for a, b in zip(values_a, values_b)],
-    }
-)
-st.dataframe(compare_df, use_container_width=True, hide_index=True)
+
+table_rows = []
+for trait in TRAITS:
+    val_a = profile_a["traits"][trait]
+    val_b = profile_b["traits"][trait]
+
+    if val_a > val_b:
+        cell_a = f'<span class="pfsa-winner">{val_a}</span>'
+        cell_b = f"{val_b}"
+    elif val_b > val_a:
+        cell_a = f"{val_a}"
+        cell_b = f'<span class="pfsa-winner">{val_b}</span>'
+    else:
+        cell_a = f"{val_a}"
+        cell_b = f"{val_b}"
+
+    table_rows.append(f"<tr><td>{trait}</td><td>{cell_a}</td><td>{cell_b}</td></tr>")
+
+table_html = f"""
+<table class="pfsa-compare-table">
+    <thead>
+        <tr>
+            <th>Tactical Trait</th>
+            <th>{player_alpha}</th>
+            <th>{player_beta}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {''.join(table_rows)}
+    </tbody>
+</table>
+"""
+
+st.markdown(table_html, unsafe_allow_html=True)
+
+wins_a = sum(1 for t in TRAITS if profile_a["traits"][t] > profile_b["traits"][t])
+wins_b = sum(1 for t in TRAITS if profile_b["traits"][t] > profile_a["traits"][t])
+
+st.write("")
+summary_col1, summary_col2, summary_col3 = st.columns(3)
+with summary_col1:
+    st.markdown(
+        f'<div class="pfsa-player-card"><div style="color:{ACCENT_BLUE}; font-size:1.4rem; font-weight:700;">'
+        f'{wins_a}</div><div style="color:#9fb3c8; font-size:0.78rem; text-transform:uppercase;">'
+        f'{player_alpha} — Traits Won</div></div>',
+        unsafe_allow_html=True,
+    )
+with summary_col2:
+    st.markdown(
+        f'<div class="pfsa-player-card"><div style="color:#9fb3c8; font-size:1.4rem; font-weight:700;">'
+        f'{len(TRAITS) - wins_a - wins_b}</div><div style="color:#9fb3c8; font-size:0.78rem; '
+        f'text-transform:uppercase;">Traits Tied</div></div>',
+        unsafe_allow_html=True,
+    )
+with summary_col3:
+    st.markdown(
+        f'<div class="pfsa-player-card"><div style="color:{ACCENT_TEAL}; font-size:1.4rem; font-weight:700;">'
+        f'{wins_b}</div><div style="color:#9fb3c8; font-size:0.78rem; text-transform:uppercase;">'
+        f'{player_beta} — Traits Won</div></div>',
+        unsafe_allow_html=True,
+    )
