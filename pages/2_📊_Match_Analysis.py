@@ -1,26 +1,20 @@
 """
 2_📊_Match_Analysis.py
 -----------------------
-Coventry City passing network: node size = touch volume,
-edge width = pass-combination frequency (min threshold = 3 passes).
-Includes a PNG export/download feature.
+Passing network engine for Al-Hilal (Saudi Pro League) and Al-Ain (UAE Pro
+League), built on a hardcoded spatial touch-position dataset. Includes a
+Climate Heat Fatigue Toggle that simulates deeper defensive positioning
+during high-temperature (38°C+) summer fixtures.
 
-NOTE: This conversation began fresh, so there was no earlier passing-network
-code to re-use. This page reconstructs that functionality from scratch using
-a synthetic (but structurally realistic) Coventry City event dataset.
+Dataset is a hardcoded, illustrative mock dataset for portfolio
+demonstration purposes only — it does not represent real tracking data.
 """
 
-import io
-
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import streamlit as st
 from mplsoccer import Pitch
 
-# --------------------------------------------------------------------------
-# PAGE CONFIG
-# --------------------------------------------------------------------------
 st.set_page_config(page_title="Match Analysis | Passing Network", page_icon="📊", layout="wide")
 
 PRIMARY_BG = "#0d1117"
@@ -28,7 +22,8 @@ SECONDARY_BG = "#161b22"
 ACCENT_BLUE = "#87CEEB"
 ACCENT_TEAL = "#00F2FE"
 PITCH_BG = "#0d1117"
-PITCH_LINE = "#223044"
+PITCH_LINE = "#2c3745"
+HEAT_COLOR = "#ff8b5c"
 
 
 def inject_css():
@@ -55,9 +50,10 @@ def inject_css():
         }}
         .pfsa-metric-value {{ font-size: 1.6rem; font-weight: 700; color: {ACCENT_TEAL}; }}
         .pfsa-metric-label {{ color: #9fb3c8; font-size: 0.78rem; text-transform: uppercase; }}
-        div.stButton > button, div.stDownloadButton > button {{
-            background: linear-gradient(90deg, {ACCENT_BLUE}, {ACCENT_TEAL});
-            color: #0d1117; font-weight: 700; border: none; border-radius: 8px;
+        .pfsa-heat-banner {{
+            background: rgba(255, 139, 92, 0.08); border: 1px solid rgba(255, 139, 92, 0.45);
+            border-left: 4px solid {HEAT_COLOR}; border-radius: 10px; padding: 0.8rem 1.1rem;
+            color: #ffcbb0; font-size: 0.88rem; margin-bottom: 1rem;
         }}
         </style>
         """,
@@ -70,105 +66,204 @@ inject_css()
 st.markdown(
     """
     <div class="pfsa-header">
-        <h1>📊 Match Analysis — Passing Network</h1>
-        <p>Coventry City FC · Node size = touch volume · Edge width = combination frequency (min. 3 passes)</p>
+        <h1>📊 Match Analysis — Passing Network Engine</h1>
+        <p>Al-Hilal (Saudi Pro League) &amp; Al-Ain (UAE Pro League) · Node size = touch involvement ·
+        Glowing edges = pass combinations (min. 3 passes)</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
+st.caption(
+    "⚠️ All positions, touch counts, and pass combinations below are illustrative mock values built "
+    "for portfolio demonstration purposes and do not represent real tracking data."
+)
+
 # --------------------------------------------------------------------------
-# SYNTHETIC EVENT DATA GENERATION
+# HARDCODED SPATIAL TOUCH-POSITION DATASET
 # --------------------------------------------------------------------------
-@st.cache_data
-def generate_match_data(seed: int = 42):
-    """Builds a synthetic Coventry City starting XI with average positions,
-    touch counts, and a pass-combination matrix."""
-    rng = np.random.default_rng(seed)
-
-    # Starting XI in a 4-3-3, average (x, y) positions on a 100x100 pitch
-    lineup = pd.DataFrame(
-        [
-            {"player": "B. Hamer", "position": "GK", "x": 6, "y": 40},
-            {"player": "J. Bidwell", "position": "LB", "x": 22, "y": 12},
-            {"player": "L. Kyriakou", "position": "CB", "x": 18, "y": 32},
-            {"player": "B. Sakamoto", "position": "CB", "x": 18, "y": 48},
-            {"player": "J. Latibeaudiere", "position": "RB", "x": 22, "y": 68},
-            {"player": "J. Allen", "position": "CDM", "x": 38, "y": 40},
-            {"player": "E. Godden", "position": "CM", "x": 48, "y": 26},
-            {"player": "T. Kelly", "position": "CM", "x": 48, "y": 54},
-            {"player": "T. Wright", "position": "LW", "x": 68, "y": 14},
-            {"player": "H. Sinclair", "position": "ST", "x": 78, "y": 40},
-            {"player": "E. Ogbene", "position": "RW", "x": 68, "y": 66},
-        ]
-    )
-
-    # Touches: higher volume for midfielders/build-up players
-    base_touches = {
-        "GK": 32, "CB": 58, "LB": 46, "RB": 46, "CDM": 72, "CM": 66, "LW": 34, "RW": 34, "ST": 28,
-    }
-    lineup["touches"] = lineup["position"].map(base_touches) + rng.integers(-6, 8, size=len(lineup))
-
-    # Build a plausible pass-combination matrix weighted by pitch proximity
-    players = lineup["player"].tolist()
-    n = len(players)
-    coords = lineup[["x", "y"]].to_numpy()
-    dist = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=-1)
-    proximity_weight = np.clip(45 - dist, 1, None)
-
-    combo_counts = np.zeros((n, n), dtype=int)
-    for i in range(n):
-        for j in range(n):
-            if i == j:
-                continue
-            lam = proximity_weight[i, j] * 0.28
-            combo_counts[i, j] = rng.poisson(lam)
-
-    pass_records = []
-    for i in range(n):
-        for j in range(i + 1, n):
-            total = combo_counts[i, j] + combo_counts[j, i]
-            if total > 0:
-                pass_records.append({"player_a": players[i], "player_b": players[j], "passes": total})
-
-    combos = pd.DataFrame(pass_records)
-    return lineup, combos
-
-
-lineup_df, combos_df = generate_match_data()
+TEAM_DATA = {
+    "Al-Hilal": {
+        "league": "Saudi Pro League",
+        "formation": "4-3-3",
+        "2024/2025 (Last Season)": {
+            "lineup": [
+                {"player": "Y. Bounou", "position": "GK", "x": 8, "y": 50, "touches": 30},
+                {"player": "S. Abdulhamid", "position": "RB", "x": 24, "y": 78, "touches": 54},
+                {"player": "K. Koulibaly", "position": "CB", "x": 18, "y": 60, "touches": 68},
+                {"player": "A. Al-Bulaihi", "position": "CB", "x": 18, "y": 40, "touches": 64},
+                {"player": "R. Lodi", "position": "LB", "x": 24, "y": 22, "touches": 58},
+                {"player": "R. Neves", "position": "CDM", "x": 40, "y": 50, "touches": 82},
+                {"player": "M. Kanno", "position": "CM", "x": 50, "y": 30, "touches": 66},
+                {"player": "S. Milinković-Savić", "position": "CM", "x": 50, "y": 70, "touches": 60},
+                {"player": "S. Al-Dawsari", "position": "RW", "x": 72, "y": 78, "touches": 46},
+                {"player": "A. Mitrović", "position": "ST", "x": 84, "y": 50, "touches": 34},
+                {"player": "M. Leonardo", "position": "LW", "x": 72, "y": 22, "touches": 38},
+            ],
+            "combos": [
+                ("R. Neves", "K. Koulibaly", 14), ("R. Neves", "A. Al-Bulaihi", 12),
+                ("R. Neves", "M. Kanno", 16), ("R. Neves", "S. Milinković-Savić", 11),
+                ("K. Koulibaly", "A. Al-Bulaihi", 9), ("K. Koulibaly", "S. Abdulhamid", 8),
+                ("A. Al-Bulaihi", "R. Lodi", 8), ("M. Kanno", "S. Abdulhamid", 7),
+                ("S. Milinković-Savić", "R. Lodi", 6), ("M. Kanno", "S. Al-Dawsari", 5),
+                ("S. Milinković-Savić", "M. Leonardo", 6), ("S. Al-Dawsari", "A. Mitrović", 4),
+                ("M. Leonardo", "A. Mitrović", 4), ("S. Abdulhamid", "S. Al-Dawsari", 5),
+                ("R. Lodi", "M. Leonardo", 5), ("Y. Bounou", "K. Koulibaly", 10),
+                ("Y. Bounou", "A. Al-Bulaihi", 9), ("R. Neves", "Y. Bounou", 5),
+                ("M. Kanno", "S. Milinković-Savić", 6), ("A. Mitrović", "S. Milinković-Savić", 3),
+            ],
+        },
+        "2025/2026 (Current Season)": {
+            "lineup": [
+                {"player": "Y. Bounou", "position": "GK", "x": 8, "y": 50, "touches": 26},
+                {"player": "S. Abdulhamid", "position": "RB", "x": 24, "y": 78, "touches": 48},
+                {"player": "K. Koulibaly", "position": "CB", "x": 18, "y": 60, "touches": 60},
+                {"player": "A. Al-Bulaihi", "position": "CB", "x": 18, "y": 40, "touches": 57},
+                {"player": "R. Lodi", "position": "LB", "x": 24, "y": 22, "touches": 50},
+                {"player": "R. Neves", "position": "CDM", "x": 40, "y": 50, "touches": 74},
+                {"player": "M. Kanno", "position": "CM", "x": 50, "y": 30, "touches": 58},
+                {"player": "S. Milinković-Savić", "position": "CM", "x": 50, "y": 70, "touches": 52},
+                {"player": "S. Al-Dawsari", "position": "RW", "x": 72, "y": 78, "touches": 40},
+                {"player": "A. Mitrović", "position": "ST", "x": 84, "y": 50, "touches": 27},
+                {"player": "M. Leonardo", "position": "LW", "x": 72, "y": 22, "touches": 33},
+            ],
+            "combos": [
+                ("R. Neves", "K. Koulibaly", 11), ("R. Neves", "A. Al-Bulaihi", 10),
+                ("R. Neves", "M. Kanno", 13), ("R. Neves", "S. Milinković-Savić", 9),
+                ("K. Koulibaly", "A. Al-Bulaihi", 8), ("K. Koulibaly", "S. Abdulhamid", 6),
+                ("A. Al-Bulaihi", "R. Lodi", 7), ("M. Kanno", "S. Abdulhamid", 5),
+                ("S. Milinković-Savić", "R. Lodi", 5), ("M. Kanno", "S. Al-Dawsari", 4),
+                ("S. Milinković-Savić", "M. Leonardo", 5), ("S. Al-Dawsari", "A. Mitrović", 3),
+                ("M. Leonardo", "A. Mitrović", 3), ("Y. Bounou", "K. Koulibaly", 8),
+                ("Y. Bounou", "A. Al-Bulaihi", 7), ("M. Kanno", "S. Milinković-Savić", 5),
+            ],
+        },
+    },
+    "Al-Ain": {
+        "league": "UAE Pro League",
+        "formation": "4-2-3-1",
+        "2024/2025 (Last Season)": {
+            "lineup": [
+                {"player": "K. Eisa", "position": "GK", "x": 8, "y": 50, "touches": 28},
+                {"player": "Y. Al-Shamsi", "position": "RB", "x": 24, "y": 76, "touches": 50},
+                {"player": "K. Laba", "position": "CB", "x": 18, "y": 60, "touches": 62},
+                {"player": "M. Al-Menhali", "position": "CB", "x": 18, "y": 40, "touches": 59},
+                {"player": "B. Al-Ketbi", "position": "LB", "x": 24, "y": 24, "touches": 52},
+                {"player": "I. Al-Hammadi", "position": "CDM", "x": 38, "y": 40, "touches": 70},
+                {"player": "Y. Ibrahim", "position": "CDM", "x": 38, "y": 60, "touches": 66},
+                {"player": "M. Al-Akhbari", "position": "AM", "x": 58, "y": 50, "touches": 54},
+                {"player": "K. Al-Blooshi", "position": "RW", "x": 68, "y": 76, "touches": 40},
+                {"player": "Fábio Lima", "position": "LW", "x": 68, "y": 24, "touches": 42},
+                {"player": "S. Rahimi", "position": "ST", "x": 84, "y": 50, "touches": 32},
+            ],
+            "combos": [
+                ("I. Al-Hammadi", "K. Laba", 12), ("I. Al-Hammadi", "M. Al-Menhali", 11),
+                ("I. Al-Hammadi", "Y. Ibrahim", 15), ("Y. Ibrahim", "M. Al-Akhbari", 13),
+                ("K. Laba", "M. Al-Menhali", 9), ("K. Laba", "Y. Al-Shamsi", 7),
+                ("M. Al-Menhali", "B. Al-Ketbi", 7), ("Y. Ibrahim", "K. Al-Blooshi", 6),
+                ("I. Al-Hammadi", "Fábio Lima", 6), ("M. Al-Akhbari", "S. Rahimi", 5),
+                ("K. Al-Blooshi", "S. Rahimi", 4), ("Fábio Lima", "S. Rahimi", 4),
+                ("K. Eisa", "K. Laba", 9), ("K. Eisa", "M. Al-Menhali", 8),
+                ("Y. Al-Shamsi", "K. Al-Blooshi", 5), ("B. Al-Ketbi", "Fábio Lima", 5),
+                ("M. Al-Akhbari", "K. Al-Blooshi", 4), ("M. Al-Akhbari", "Fábio Lima", 4),
+            ],
+        },
+        "2025/2026 (Current Season)": {
+            "lineup": [
+                {"player": "K. Eisa", "position": "GK", "x": 8, "y": 50, "touches": 25},
+                {"player": "Y. Al-Shamsi", "position": "RB", "x": 24, "y": 76, "touches": 45},
+                {"player": "K. Laba", "position": "CB", "x": 18, "y": 60, "touches": 56},
+                {"player": "M. Al-Menhali", "position": "CB", "x": 18, "y": 40, "touches": 53},
+                {"player": "B. Al-Ketbi", "position": "LB", "x": 24, "y": 24, "touches": 47},
+                {"player": "I. Al-Hammadi", "position": "CDM", "x": 38, "y": 40, "touches": 64},
+                {"player": "Y. Ibrahim", "position": "CDM", "x": 38, "y": 60, "touches": 60},
+                {"player": "M. Al-Akhbari", "position": "AM", "x": 58, "y": 50, "touches": 48},
+                {"player": "K. Al-Blooshi", "position": "RW", "x": 68, "y": 76, "touches": 35},
+                {"player": "Fábio Lima", "position": "LW", "x": 68, "y": 24, "touches": 37},
+                {"player": "S. Rahimi", "position": "ST", "x": 84, "y": 50, "touches": 29},
+            ],
+            "combos": [
+                ("I. Al-Hammadi", "K. Laba", 10), ("I. Al-Hammadi", "M. Al-Menhali", 9),
+                ("I. Al-Hammadi", "Y. Ibrahim", 13), ("Y. Ibrahim", "M. Al-Akhbari", 11),
+                ("K. Laba", "M. Al-Menhali", 8), ("K. Laba", "Y. Al-Shamsi", 6),
+                ("M. Al-Menhali", "B. Al-Ketbi", 6), ("Y. Ibrahim", "K. Al-Blooshi", 5),
+                ("I. Al-Hammadi", "Fábio Lima", 5), ("M. Al-Akhbari", "S. Rahimi", 4),
+                ("K. Eisa", "K. Laba", 7), ("K. Eisa", "M. Al-Menhali", 7),
+                ("M. Al-Akhbari", "K. Al-Blooshi", 3), ("M. Al-Akhbari", "Fábio Lima", 3),
+            ],
+        },
+    },
+}
 
 # --------------------------------------------------------------------------
 # CONTROLS
 # --------------------------------------------------------------------------
-ctrl_col, meta_col1, meta_col2, meta_col3 = st.columns([2, 1, 1, 1])
-with ctrl_col:
+c1, c2, c3 = st.columns([1.2, 1.2, 1.6])
+with c1:
+    selected_team = st.selectbox("Target Team", list(TEAM_DATA.keys()))
+with c2:
+    selected_season = st.selectbox("Season", ["2024/2025 (Last Season)", "2025/2026 (Current Season)"])
+with c3:
     min_passes = st.slider("Minimum pass-combination threshold", min_value=1, max_value=10, value=3)
-with meta_col1:
+
+heat_toggle = st.toggle(
+    "🌡️ Climate Heat Fatigue Toggle — Simulate 38°C+ Summer Fixture",
+    value=False,
+    help="Shifts outfield players deeper to simulate reduced pressing intensity and a dropped defensive "
+         "line under extreme heat conditions.",
+)
+
+team_info = TEAM_DATA[selected_team]
+season_data = team_info[selected_season]
+lineup_df = pd.DataFrame(season_data["lineup"])
+combos = season_data["combos"]
+
+# --------------------------------------------------------------------------
+# APPLY HEAT FATIGUE ADJUSTMENT
+# --------------------------------------------------------------------------
+HEAT_DROP = 10  # metres-equivalent drop in average positioning under extreme heat
+
+lineup_df["x_adj"] = lineup_df["x"]
+if heat_toggle:
+    non_gk_mask = lineup_df["position"] != "GK"
+    lineup_df.loc[non_gk_mask, "x_adj"] = (lineup_df.loc[non_gk_mask, "x"] - HEAT_DROP).clip(lower=6)
+
+if heat_toggle:
     st.markdown(
-        f'<div class="pfsa-card"><div class="pfsa-metric-value">{int(lineup_df["touches"].sum())}</div>'
-        f'<div class="pfsa-metric-label">Total Touches</div></div>',
+        f"""
+        <div class="pfsa-heat-banner">
+            🌡️ <strong>High Temperature Mode Active</strong> — {selected_team}'s outfield shape is sitting
+            approximately {HEAT_DROP}m deeper than its baseline structure, reflecting reduced pressing
+            intensity and a dropped defensive line typical of 38°C+ kickoff conditions.
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-with meta_col2:
-    active_edges = combos_df[combos_df["passes"] >= min_passes]
-    st.markdown(
-        f'<div class="pfsa-card"><div class="pfsa-metric-value">{len(active_edges)}</div>'
-        f'<div class="pfsa-metric-label">Active Connections</div></div>',
-        unsafe_allow_html=True,
-    )
-with meta_col3:
-    st.markdown(
-        f'<div class="pfsa-card"><div class="pfsa-metric-value">{int(combos_df["passes"].sum())}</div>'
-        f'<div class="pfsa-metric-label">Total Passes (est.)</div></div>',
-        unsafe_allow_html=True,
-    )
+
+# --------------------------------------------------------------------------
+# KPI ROW
+# --------------------------------------------------------------------------
+active_edges = [c for c in combos if c[2] >= min_passes]
+k1, k2, k3 = st.columns(3)
+kpis = [
+    ("Total Touches", int(lineup_df["touches"].sum())),
+    ("Active Connections", len(active_edges)),
+    ("Total Passes (est.)", sum(c[2] for c in combos)),
+]
+for col, (label, val) in zip([k1, k2, k3], kpis):
+    with col:
+        st.markdown(
+            f'<div class="pfsa-card"><div class="pfsa-metric-value">{val}</div>'
+            f'<div class="pfsa-metric-label">{label}</div></div>',
+            unsafe_allow_html=True,
+        )
 
 st.write("")
 
 # --------------------------------------------------------------------------
 # DRAW THE PASSING NETWORK
 # --------------------------------------------------------------------------
-def draw_passing_network(lineup: pd.DataFrame, combos: pd.DataFrame, threshold: int):
+def draw_passing_network(lineup: pd.DataFrame, combos: list, threshold: int, team: str, formation: str):
     pitch = Pitch(
         pitch_type="opta",
         pitch_color=PITCH_BG,
@@ -180,34 +275,31 @@ def draw_passing_network(lineup: pd.DataFrame, combos: pd.DataFrame, threshold: 
     fig.patch.set_facecolor(PITCH_BG)
     ax.set_facecolor(PITCH_BG)
 
-    pos_lookup = lineup.set_index("player")[["x", "y", "touches"]]
+    pos_lookup = lineup.set_index("player")[["x_adj", "y", "touches"]]
 
-    # --- Edges (drawn first, beneath nodes) ---
-    edges = combos[combos["passes"] >= threshold]
-    if not edges.empty:
-        max_p = edges["passes"].max()
-        for _, row in edges.iterrows():
-            xa, ya = pos_lookup.loc[row["player_a"], ["x", "y"]]
-            xb, yb = pos_lookup.loc[row["player_b"], ["x", "y"]]
-            lw = 0.6 + 5.5 * (row["passes"] / max_p)
-            pitch.lines(
-                xa, ya, xb, yb,
-                lw=lw,
-                color=ACCENT_TEAL,
-                alpha=0.55,
-                zorder=2,
-                ax=ax,
-            )
+    # --- Glowing edges (drawn first, beneath nodes) ---
+    edges = [c for c in combos if c[2] >= threshold]
+    if edges:
+        max_p = max(c[2] for c in edges)
+        for player_a, player_b, passes in edges:
+            xa, ya = pos_lookup.loc[player_a, ["x_adj", "y"]]
+            xb, yb = pos_lookup.loc[player_b, ["x_adj", "y"]]
+            base_lw = 0.6 + 5.0 * (passes / max_p)
 
-    # --- Nodes ---
+            # glow layers: wide + faint, then narrow + solid
+            pitch.lines(xa, ya, xb, yb, lw=base_lw + 5, color=ACCENT_TEAL, alpha=0.10, zorder=2, ax=ax)
+            pitch.lines(xa, ya, xb, yb, lw=base_lw + 2.5, color=ACCENT_TEAL, alpha=0.20, zorder=2, ax=ax)
+            pitch.lines(xa, ya, xb, yb, lw=base_lw, color=ACCENT_TEAL, alpha=0.75, zorder=2, ax=ax)
+
+    # --- Nodes (Sky Blue circles scaled by touches) ---
     max_touches = lineup["touches"].max()
     sizes = 260 + 1500 * (lineup["touches"] / max_touches)
     pitch.scatter(
-        lineup["x"], lineup["y"],
+        lineup["x_adj"], lineup["y"],
         s=sizes,
         color=SECONDARY_BG,
         edgecolors=ACCENT_BLUE,
-        linewidth=2.2,
+        linewidth=2.4,
         alpha=0.95,
         zorder=3,
         ax=ax,
@@ -216,44 +308,28 @@ def draw_passing_network(lineup: pd.DataFrame, combos: pd.DataFrame, threshold: 
     for _, row in lineup.iterrows():
         pitch.annotate(
             row["player"].split()[-1],
-            xy=(row["x"], row["y"]),
+            xy=(row["x_adj"], row["y"]),
             c="#f0f6fc",
             va="center", ha="center",
-            fontsize=9, fontweight="bold",
+            fontsize=8.5, fontweight="bold",
             zorder=4, ax=ax,
         )
 
+    heat_tag = " · 🌡️ Heat Fatigue Mode" if lineup["x_adj"].ne(lineup["x"]).any() else ""
     ax.set_title(
-        "Coventry City FC — Passing Network",
+        f"{team} — Passing Network ({formation}){heat_tag}",
         color="#f0f6fc", fontsize=15, fontweight="bold", pad=14,
     )
     fig.text(
         0.5, 0.02,
-        f"Node size = touches · Edge width = pass frequency (≥ {threshold} passes)",
+        f"Node size = touches · Glowing teal edges = pass frequency (≥ {threshold} passes)",
         color="#9fb3c8", ha="center", fontsize=9,
     )
     return fig
 
 
-fig = draw_passing_network(lineup_df, combos_df, min_passes)
+fig = draw_passing_network(lineup_df, combos, min_passes, selected_team, team_info["formation"])
 st.pyplot(fig, use_container_width=True)
-
-# --------------------------------------------------------------------------
-# PNG DOWNLOAD
-# --------------------------------------------------------------------------
-buf = io.BytesIO()
-fig.savefig(buf, format="png", dpi=250, facecolor=fig.get_facecolor(), bbox_inches="tight")
-buf.seek(0)
-
-dl_col, _ = st.columns([1, 3])
-with dl_col:
-    st.download_button(
-        label="⬇️ Download Passing Network (PNG)",
-        data=buf,
-        file_name="coventry_city_passing_network.png",
-        mime="image/png",
-        use_container_width=True,
-    )
 
 with st.expander("📋 View underlying touch &amp; combination data"):
     t1, t2 = st.columns(2)
@@ -263,5 +339,6 @@ with st.expander("📋 View underlying touch &amp; combination data"):
                      use_container_width=True, hide_index=True)
     with t2:
         st.markdown(f"**Active Pass Combinations (≥ {min_passes})**")
-        st.dataframe(active_edges.sort_values("passes", ascending=False),
-                     use_container_width=True, hide_index=True)
+        combo_df = pd.DataFrame(active_edges, columns=["Player A", "Player B", "Passes"]).sort_values(
+            "Passes", ascending=False)
+        st.dataframe(combo_df, use_container_width=True, hide_index=True)
